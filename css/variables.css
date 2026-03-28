@@ -1,0 +1,52 @@
+:root {
+  /* ── Background ── */
+  --color-bg: #16161c;
+  --color-bg-secondary: #1f1f26;
+  --color-surface: rgba(255,255,255,0.06);
+  --color-surface-hover: rgba(255,255,255,0.1);
+  --color-border: rgba(255,255,255,0.08);
+
+  /* ── Text ── */
+  --color-text-primary: #f0f0f5;
+  --color-text-secondary: rgba(240,240,245,0.55);
+  --color-text-muted: rgba(240,240,245,0.3);
+
+  /* ── Accent ── */
+  --color-accent: #7c8fff;
+  --color-accent-dim: rgba(124,143,255,0.25);
+
+  /* ── CD Player ── */
+  --cd-wood:       #2e1f12;
+  --cd-wood-mid:   #3d2b1a;
+  --cd-wood-light: #5c3d22;
+  --cd-glass:      rgba(160,210,255,0.12);
+  --cd-glass-edge: rgba(200,235,255,0.28);
+  --cd-body:       #1c1c24;
+
+  /* ── Z-index layers ── */
+  --z-bg:       0;
+  --z-content:  10;
+  --z-cd:       20;
+  --z-controls: 30;
+  --z-progress: 40;
+  --z-topbar:   50;
+  --z-search:   60;
+  --z-settings: 70;
+  --z-tooltip:  80;
+
+  /* ── Album card ── */
+  --album-size: 280px;
+
+  /* ── Spacing ── */
+  --sp-xs: 4px;
+  --sp-sm: 8px;
+  --sp-md: 16px;
+  --sp-lg: 24px;
+  --sp-xl: 40px;
+  --sp-2xl: 64px;
+
+  /* ── Transitions ── */
+  --t-fast:   0.15s ease;
+  --t-normal: 0.3s ease;
+  --t-slow:   0.55s cubic-bezier(0.4, 0, 0.2, 1);
+}

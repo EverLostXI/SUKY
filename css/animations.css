@@ -1,0 +1,121 @@
+/* ══════════════════════════════════════
+   Phase 1: Placeholder animations
+   (Will be replaced with GSAP timelines in Phase 2)
+══════════════════════════════════════ */
+
+/* ── CD Rotation ──
+   Rotation is now driven by JS requestAnimationFrame in components.js
+   so that mouse-drag and playback state both contribute to the transform
+   without conflicting with CSS animation. ── */
+
+/* ── View transition placeholders ── */
+/* Phase 1: simple fade + slight scale
+   Phase 2: replace with GSAP 3D camera sequence */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeOutLeft {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-60px); }
+}
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.view-entering {
+  animation: fadeInScale 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.view-leaving {
+  animation: fadeOutLeft 0.4s ease forwards;
+}
+
+/* ── Album cards fly-out (Phase 1 placeholder) ── */
+@keyframes flyLeft {
+  from { transform: var(--current-transform); opacity: 1; }
+  to   { transform: translateX(-120vw); opacity: 0; }
+}
+@keyframes flyRight {
+  from { transform: var(--current-transform); opacity: 1; }
+  to   { transform: translateX(120vw); opacity: 0; }
+}
+.album-card.fly-left  { animation: flyLeft  0.5s ease forwards; }
+.album-card.fly-right { animation: flyRight 0.5s ease forwards; }
+
+/* ── Initial Startup Animation ── */
+@keyframes startupCardDrop {
+  from {
+    translate: 0 -120vh;
+  }
+  to {
+    translate: 0 0;
+  }
+}
+
+body.is-startup .album-card {
+  /* Using 'translate' independent property so it doesn't overwrite 'transform' */
+  animation: startupCardDrop 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--startup-delay, 0s);
+}
+
+@keyframes infoEmergence {
+  from {
+    opacity: 0;
+    translate: 0 20px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+body.is-startup .is-startup-info {
+  animation: infoEmergence 0.8s ease-out both;
+  /* 0.07 * 6 (最大卡片延迟约0.42s) + 0.8 (掉落时间) ≈ 1.25s，等待所有卡片完全落定后再浮现 */
+  animation-delay: 1.25s;
+  will-change: opacity, translate;
+}
+
+/* ── Progress bar pulse on track change ── */
+@keyframes segmentPulse {
+  0%   { opacity: 0.5; }
+  50%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+.track-segment.active {
+  animation: segmentPulse 0.3s ease forwards;
+}
+
+/* ── Hover zone triggers ── */
+/* Top hover zone - for search reveal */
+#top-hover-zone {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 80px;
+  z-index: calc(var(--z-search) - 1);
+  pointer-events: all;
+}
+/* Bottom hover zone - for CD player and progress bar */
+#bottom-hover-zone {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 100px;
+  z-index: calc(var(--z-progress) - 1);
+  pointer-events: all;
+}
+
+/* ── Settings panel backdrop ── */
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: calc(var(--z-settings) - 1);
+  opacity: 0;
+  transition: opacity var(--t-normal);
+  pointer-events: none;
+}
+.settings-backdrop.visible {
+  opacity: 1;
+  pointer-events: all;
+}

@@ -1,0 +1,286 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+*:focus, *:focus-visible {
+  outline: none;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  user-select: none;
+}
+
+/* ── View containers ── */
+.view {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: opacity var(--t-slow);
+}
+.view.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.view.inactive {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Main View layout ── */
+#main-view {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+}
+
+.camera-rig {
+  position: fixed;
+  inset: 0;
+  perspective: 900px;
+  perspective-origin: center 50%;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.scene-3d {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform-origin: center 60%;
+  transform: rotateX(calc(var(--cam-rx, 0deg) * -1));
+}
+
+.wall-plane {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: translateZ(-700px) scale(1.9);
+  transform-origin: center center;
+}
+
+.table-plane {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 600px;
+  height: 600px;
+  overflow: visible;
+  pointer-events: none;
+  transform: translateX(-50%) rotateX(-80deg);
+  transform-origin: top center;
+}
+
+.table-cd-machine {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  width: 340px;
+  height: 340px;
+  transform: translate(-50%, -50%) scale(1.28) translateY(-45px);
+}
+
+.table-cd-body {
+  position: absolute;
+  inset: -40px;
+  background: #2a2a2a;
+  border: 24px solid #2b1408;
+  border-radius: 32px;
+  box-shadow:
+    0 20px 80px rgba(0,0,0,0.8),
+    inset 0 4px 20px rgba(0,0,0,0.8);
+}
+
+.table-cd-well {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300px;
+  height: 300px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%,
+      #262626 0%,
+      #1b1b1b 42%,
+      #111 68%,
+      #0a0a0a 100%);
+  box-shadow:
+    inset 0 18px 28px rgba(255,255,255,0.035),
+    inset 0 -18px 30px rgba(0,0,0,0.72),
+    inset 0 0 0 1px rgba(255,255,255,0.03),
+    0 2px 4px rgba(0,0,0,0.28);
+}
+
+.global-top-bar {
+  position: fixed;
+  top: var(--sp-lg);
+  left: var(--sp-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  z-index: 65; /* above search overlay (60) so buttons remain clickable */
+  opacity: 0;
+  transition: opacity var(--t-normal);
+}
+body:hover .global-top-bar { opacity: 1; }
+
+.hidden-back-btn {
+  opacity: 0;
+  pointer-events: none;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  transform: scale(0.8);
+  transition: all var(--t-normal) cubic-bezier(0.4,0,0.2,1);
+}
+.show-back-btn {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  width: 50px !important;
+  height: 50px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  transform: scale(1) !important;
+}
+
+/* ── Cover Flow Stage ── */
+.cover-flow-stage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  perspective: 1000px;
+  perspective-origin: 50% 50%;
+  overflow: hidden;
+  transform: translateY(-64px);
+}
+
+.cover-flow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: calc(var(--album-size) + 60px);
+  transform-style: preserve-3d;
+  perspective: 1200px;
+}
+
+/* ── Album info below cover ── */
+.album-info {
+  position: absolute;
+  top: calc(50% + (var(--album-size) * 0.6) - 19px);
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: var(--z-content);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+.album-info.hidden {
+  opacity: 0 !important;
+}
+.album-info .album-title {
+  font-size: 36px; /* Doubled from 18px */
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+}
+.album-info .album-artist {
+  font-size: 20px; /* Increased from 14px */
+  color: var(--color-text-secondary);
+  margin-top: 12px;
+}
+
+/* ── Playback View layout ── */
+#playback-view {
+  background: transparent;
+  z-index: 5;
+}
+
+/* ── Global Background ── */
+#global-bg {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-bg);
+  opacity: 0; /* 默认主页面隐藏，使得主页面亮色背景露出 */
+  transition: opacity 0.8s ease;
+  pointer-events: none;
+}
+body.in-playback #global-bg {
+  opacity: 1; /* 进入播放相关状态时才显示 */
+}
+
+.bg-canvas {
+  position: absolute;
+  inset: -100px; /* blur会收缩边缘，向外延伸防止漏白 */
+  width: calc(100% + 200px);
+  height: calc(100% + 200px);
+  opacity: 1; /* 始终显示，只是改变明度 */
+  filter: blur(60px) brightness(0.6) saturate(0.8); /* 暂停状态：稍微压暗亮度并微微降低饱和度，比之前更亮 */
+  transition: filter 0.75s ease; /* 渐出速度快 */
+  pointer-events: none;
+}
+.bg-blur {
+  position: absolute;
+  inset: -100px;
+  width: calc(100% + 200px);
+  height: calc(100% + 200px);
+  background: rgba(0,0,0,0.15); /* 大幅减轻暗场垫底，恢复整体亮度 */
+  opacity: 1;
+  pointer-events: none;
+}
+
+body.is-playing .bg-canvas {
+  filter: blur(60px) brightness(1) saturate(1); /* 播放状态：恢复正常明亮的主题色 */
+  transition: filter 1.5s ease; /* 渐入慢速丝滑 */
+}
+
+/* ── CD Player main stage ── */
+.cd-player-main {
+  position: relative;
+  z-index: var(--z-cd);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Playback controls ── */
+.playback-controls {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-controls);
+  pointer-events: none; /* 让大容器区域可穿透，单独给按钮恢复点击实体 */
+  /* 控制层显隐交由内部按钮的opacity控制，这里保持1以传递hover状态 */
+}
+#playback-view:hover .playback-controls.area-hover { 
+  opacity: 1; 
+}
+
+/* ── Progress bar area ── */
+.progress-container {
+  position: fixed;
+  bottom: 80px; /* Shifted up closer to the buttons */
+  left: 50%;
+  width: 70%;
+  padding: var(--sp-lg) var(--sp-xl) var(--sp-xl);
+  z-index: var(--z-progress);
+  transform: translateX(-50%);
+  pointer-events: none; /* Let clicks pass through when hidden */
+}
+.progress-container.visible {
+  pointer-events: auto;
+}

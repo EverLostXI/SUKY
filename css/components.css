@@ -1,0 +1,612 @@
+/* ══════════════════════════════════════
+   Buttons
+══════════════════════════════════════ */
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  width: 50px; height: 50px; /* 原来 38px 的约 1.3 倍 */
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px;
+  cursor: pointer;
+  transition: background var(--t-fast), transform var(--t-fast);
+}
+.icon-btn:hover {
+  background: rgba(255,255,255,0.08);
+  transform: scale(1.08);
+}
+.icon-btn:active {
+  transform: scale(0.8);
+  background: rgba(255,255,255,0.15);
+}
+.icon-btn .hamburger {
+  display: block;
+  width: 22px; height: 3px;
+  background: rgba(255,255,255,0.7);
+  position: relative;
+  border-radius: 2px;
+}
+.icon-btn .hamburger::before,
+.icon-btn .hamburger::after {
+  content: '';
+  position: absolute;
+  width: 22px; height: 3px;
+  background: rgba(255,255,255,0.7);
+  left: 0;
+  border-radius: 2px;
+}
+.icon-btn .hamburger::before { top: -7px; }
+.icon-btn .hamburger::after  { top: 7px; }
+
+.control-btn {
+  background: rgba(45, 45, 45, 0.4); /* 所有按钮增加毛玻璃灰色背景 */
+  backdrop-filter: blur(6px); /* 降低高斯模糊程度 */
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  color: rgba(255,255,255,0.95);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform var(--t-fast), color var(--t-fast), opacity var(--t-normal);
+  display: flex; align-items: center; justify-content: center;
+  width: 96px; height: 96px;
+  position: absolute;
+  /* (scale 1.28 * translateY -45 = 整体上移57.6px) 保持与CD绝对圆心同高 */
+  top: var(--cd-center-y, calc(50% - 72px)); 
+  margin-top: -48px; /* 减掉自身高度一半实现极细垂直居中 */
+  opacity: 0; /* 默认均不可见，鼠标靠近对应高度再显示 */
+}
+
+/* 仅当播放页面显示时，为按钮启用事件响应（避免隐藏时阻挡背后 main-view 中心区域的图层 Hover） */
+#playback-view:not(.inactive) .control-btn {
+  pointer-events: auto;
+}
+
+/* 左右两颗切歌按钮被发配到左右两侧安全距离（偏远一点） */
+#prev-btn { left: calc(50% - 500px); margin-left: -48px; }
+#next-btn { left: calc(50% + 500px); margin-left: -48px; }
+
+.control-btn svg {
+  width: 76px; /* 单独调大上一首下一首的三角形图标 */
+  height: 76px;
+}
+
+.control-btn.play-pause {
+  width: 120px; height: 120px; /* 直径减小为120px */
+  left: 50%;
+  margin-left: -60px; /* 减去半径一半居中 */
+  margin-top: -60px;
+}
+
+.control-btn.play-pause svg {
+  width: 88px; /* 内部播放图标调大 */
+  height: 88px;
+}
+
+/* 按钮显形交由JS各个按钮独立控制，所以去掉统一的 .area-hover 控制 */
+.control-btn.visible {
+  opacity: 1;
+}
+
+.control-btn:hover {
+  color: #fff;
+  transform: scale(1.15); 
+}
+.control-btn:active {
+  transform: scale(0.9);
+  color: rgba(255,255,255,0.5);
+}
+
+.control-btn.play-pause:hover {
+  transform: scale(1.05);
+}
+.control-btn.play-pause:active {
+  transform: scale(0.95);
+}
+
+/* ══════════════════════════════════════
+   Album Card (Cover Flow)
+══════════════════════════════════════ */
+.album-card {
+  position: absolute;
+  width: var(--album-size);
+  height: var(--album-size);
+  border-radius: 12px;
+  overflow: visible;
+  cursor: pointer;
+  transition: transform var(--t-slow), opacity var(--t-slow), filter var(--t-slow);
+  transform-style: preserve-3d;
+}
+.album-card .album-cover {
+  width: var(--album-size);
+  height: var(--album-size);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  position: relative;
+  z-index: 2;
+  transition: transform var(--t-normal);
+}
+.album-card .album-cover img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.album-card .album-cover-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 48px;
+  background: linear-gradient(135deg, #2a2a3a, #1a1a28);
+}
+
+/* CD peeking from behind album card */
+.album-card .cd-peek {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(var(--album-size) * 0.9);
+  height: calc(var(--album-size) * 0.9);
+  opacity: 0;
+  transition: opacity var(--t-normal), transform var(--t-normal);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.cd-peek-disc {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%,
+    #3a3a3a 0%, #222 20%, #1a1a1a 35%, #0d0d0d 50%,
+    #181818 65%, #242424 80%, #1c1c1c 100%);
+  box-shadow:
+    0 0 0 2px #2a2a2a,
+    0 10px 30px rgba(0,0,0,0.8),
+    inset 0 0 30px rgba(255,255,255,0.03);
+}
+
+.cd-peek-disc::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255,200,150,0.08), rgba(150,200,255,0.1),
+    rgba(200,150,255,0.08), rgba(150,255,200,0.08),
+    rgba(255,200,150,0.08)
+  );
+}
+
+.cd-peek-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 75%;
+  height: 75%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 4px #111;
+  z-index: 3;
+}
+
+.cd-peek-label img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Center album hover: shift left, cd peek right */
+.album-card.center.ready:hover .album-cover {
+  transform: translateX(-96px);
+}
+.album-card.center.ready:hover .cd-peek {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+
+/* Reflection under album */
+.album-card .album-reflection {
+  position: absolute;
+  bottom: -40px;
+  left: 0;
+  width: 100%;
+  height: 40px;
+  background: inherit;
+  transform: scaleY(-1);
+  opacity: 0.15;
+  filter: blur(4px);
+  border-radius: 0 0 12px 12px;
+  pointer-events: none;
+}
+
+/* ══════════════════════════════════════
+   Search Overlay
+══════════════════════════════════════ */
+.search-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  padding: var(--sp-xl);
+  display: flex;
+  justify-content: center;
+  z-index: var(--z-search);
+  transform: translateY(-110%);
+  transition: transform var(--t-slow);
+  pointer-events: none;
+}
+.search-overlay.visible {
+  transform: translateY(0);
+  pointer-events: all;
+}
+.search-container {
+  width: 840px; /* 原先 560px 的 1.5 倍 */
+  max-width: 90vw;
+  background: rgba(28,28,40,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 9999px; /* 将两端变为完全变圆 */
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.search-container input {
+  width: 100%;
+  padding: 24px 30px; /* 原先 16px 20px 的 1.5 倍 */
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font-size: 24px; /* 原先 16px 的 1.5 倍 */
+  letter-spacing: 0.02em;
+}
+.search-container input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* ══════════════════════════════════════
+   Settings Panel
+══════════════════════════════════════ */
+.settings-panel {
+  position: fixed;
+  top: 0; left: 0;
+  width: 260px;
+  height: 100%;
+  background: rgba(14,14,22,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--color-border);
+  z-index: var(--z-settings);
+  padding: var(--sp-2xl) var(--sp-lg);
+  transform: translateX(-100%);
+  transition: transform var(--t-slow);
+}
+.settings-panel.visible {
+  transform: translateX(0);
+}
+.settings-panel h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: var(--sp-xl);
+}
+.setting-item {
+  margin-bottom: var(--sp-lg);
+}
+.setting-item label {
+  display: block;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--sp-sm);
+}
+.setting-item input[type="range"] {
+  width: 100%;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+/* ══════════════════════════════════════
+   CD Machine (Playback View)
+══════════════════════════════════════ */
+.cd-machine {
+  position: relative;
+  width: 340px;
+  height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: scale(1.28) translateY(-45px); 
+}
+
+/* Static shadow for the CD to prevent it from rotating */
+.cd-disc-shadow {
+  position: absolute;
+  width: 300px; /* 同步放大光盘阴影 */
+  height: 300px;
+  border-radius: 50%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+  z-index: 1; /* Below the disc (2) but above the body (0) */
+  pointer-events: none;
+}
+
+/* The spinning disc */
+.cd-disc {
+  position: relative;
+  width: 300px; /* 放大 CD 的尺寸 (原 280px) */
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%,
+    #3a3a3a 0%, #222 20%, #1a1a1a 35%, #0d0d0d 50%,
+    #181818 65%, #242424 80%, #1c1c1c 100%);
+  box-shadow:
+    0 0 0 2px #2a2a2a,
+    inset 0 0 30px rgba(255,255,255,0.03); /* Removed the outer rotating drop-shadow */
+  cursor: grab;
+  z-index: 2;
+  /* No CSS transition — rotation is driven frame-by-frame by JS RAF loop */
+}
+.cd-disc:active { cursor: grabbing; }
+
+/* Iridescent shine ring */
+.cd-disc::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255,200,150,0.08), rgba(150,200,255,0.1),
+    rgba(200,150,255,0.08), rgba(150,255,200,0.08),
+    rgba(255,200,150,0.08)
+  );
+}
+
+/* Center hole + label area */
+.cd-label {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 75%; /* 再次扩大专辑封面直径 (原 60%) */
+  height: 75%;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 4px #111;
+  z-index: 3;
+}
+.cd-label img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.cd-label-placeholder {
+  width: 100%; height: 100%;
+  background: #1a1a28;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+
+/* Center spindle hole */
+.cd-disc::after {
+  content: none;
+}
+
+/* Machine body */
+.cd-machine-body {
+  position: absolute;
+  inset: -40px; /* 增加inset以容纳更厚的边框，保持内部空间一致 */
+  background: #2a2a2a; /* 深灰色内部 */
+  border: 24px solid #2b1408; /* 加厚的檀木色外框，且颜色更深更沉稳 */
+  border-radius: 32px; /* 相应调整外圆角 */
+  z-index: 0;
+  box-shadow:
+    0 20px 80px rgba(0,0,0,0.8), /* 外部环境投影稍微居中以匹配俯视 */
+    inset 0 4px 20px rgba(0,0,0,0.8); /* 内部阴影，表现向下凹陷装CD的空间 */
+}
+
+.cd-machine-body::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300px;
+  height: 300px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%,
+      #262626 0%,
+      #1b1b1b 42%,
+      #111 68%,
+      #0a0a0a 100%);
+  box-shadow:
+    inset 0 18px 28px rgba(255,255,255,0.035),
+    inset 0 -18px 30px rgba(0,0,0,0.72),
+    inset 0 0 0 1px rgba(255,255,255,0.03),
+    0 2px 4px rgba(0,0,0,0.28);
+  z-index: 0;
+}
+
+/* ══════════════════════════════════════
+   Progress Bar
+══════════════════════════════════════ */
+.track-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-sm);
+  
+  opacity: 0;
+  transform: translateY(80px);
+  /* 离开时（不带 .visible 时）：先淡下进度条，再淡下文字 */
+  transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition-delay: 0.1s; 
+}
+
+.progress-container.visible .track-info,
+.track-info.force-show {
+  opacity: 1 !important;
+  transform: translateY(0);
+  /* 进入时：文字先淡上，进度条再紧接着淡上 */
+  transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+  transition-delay: 0.05s; 
+}
+
+.track-info #current-track-name {
+  font-size: 38px; /* 调整为现在的0.8倍 (原本47.5px) */
+  font-weight: 500;
+  color: var(--color-text-primary);
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.track-info #current-time-display {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.progress-bar-wrap {
+  position: relative;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  
+  transform: translateY(120px);
+  opacity: 0;
+  transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+  transition-delay: 0s; /* 离开时没有延迟，最先下降 */
+}
+
+.progress-container.visible .progress-bar-wrap {
+  transform: translateY(0);
+  opacity: 1;
+  transition-delay: 0.15s; /* 进入时比.track-info稍晚，形成接力感 */
+}
+
+/* Track segments container */
+#progress-bar {
+  display: flex;
+  width: 100%;
+  height: 7.5px;
+  gap: 3px;
+  position: relative;
+}
+
+/* Individual track segment */
+.track-segment {
+  flex-shrink: 1; /* 允许压缩以抵消 gap 带来的额外宽度 */
+  min-width: 2px; /* 极端情况下防止曲目太短被压缩到没 */
+  height: 100%;
+  position: relative;
+  background: rgba(255,255,255,0.15);
+  overflow: hidden;
+  transition: height var(--t-fast);
+}
+/* Rounded ends on the outermost segments */
+.track-segment:first-child {
+  border-radius: 3px 0 0 3px;
+}
+.track-segment:last-child {
+  border-radius: 0 3px 3px 0;
+}
+.track-segment:first-child:last-child {
+  border-radius: 3px;
+}
+
+.progress-bar-wrap:hover .track-segment {
+  height: 12px;
+}
+.track-segment .segment-fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  background: var(--color-text-primary);
+  width: 0%;
+  pointer-events: none;
+  /* Removed transition: width 0.1s linear; for absolute realtime dragging response */
+}
+
+/* Hover indicator line */
+#progress-indicator {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%); /* Center exactly on JS injected left pos */
+  width: 2px;
+  height: 16px;
+  background: rgba(255,255,255,0.7);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+
+/* Tooltip */
+#progress-tooltip {
+  position: absolute;
+  bottom: 22px;
+  opacity: 0;
+  transition: opacity var(--t-fast);
+  background: rgba(20,20,30,0.5); /* Semi transparent */
+  backdrop-filter: blur(16px);    /* Gaussian blur background */
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px 14px; /* Slightly larger padding to match scale */
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+#progress-tooltip .tooltip-track-name {
+  font-size: 14.5px; /* 1.2x bigger */
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+#progress-tooltip .tooltip-time {
+  font-size: 13px; /* 1.2x bigger */
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ══════════════════════════════════════
+   Empty State
+══════════════════════════════════════ */
+.empty-state {
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: var(--sp-2xl);
+}
+.empty-state h2 {
+  font-size: 22px;
+  margin-bottom: var(--sp-md);
+  color: var(--color-text-primary);
+}
+.empty-state p {
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 400px;
+}
+.empty-state code {
+  background: var(--color-surface);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 13px;
+}
+
+/* ══════════════════════════════════════
+   Loading indicator
+══════════════════════════════════════ */
+.loading-spinner {
+  width: 32px; height: 32px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
