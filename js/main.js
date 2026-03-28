@@ -64,6 +64,11 @@ async function init() {
   initSearch();
 
   // 4. 音频引擎时间更新 → 进度条
+  audioEngine.onPlaybackStateChange = (isPlaying) => {
+    state.set('isPlaying', isPlaying);
+    updatePlayPauseBtn();
+  };
+
   let _lastSaveTime = 0;
   audioEngine.onTimeUpdate = (albumTime, trackIndex) => {
     state.set('currentAlbumTime', albumTime);

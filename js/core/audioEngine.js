@@ -28,10 +28,210 @@ export class AudioEngine {
     this.onTimeUpdate = null;   // (albumTime, trackIndex) => void
     this.onTrackChange = null;  // (trackIndex) => void
     this.onEnded = null;        // () => void
+    this.onPlaybackStateChange = null; // (isPlaying) => void
 
     this._rafId = null;
     this._trackEndTimer = null;
     this._playSeq = 0;
+    this._lastMediaPositionSyncAt = 0;
+    this._hasMediaSession =
+      typeof navigator !== 'undefined' &&
+      'mediaSession' in navigator &&
+      typeof navigator.mediaSession?.setActionHandler === 'function';
+    this._mediaSessionHandlers = null;
+    this.mediaSessionEl = null;
+    this._mediaHostUrl = null;
+    this._syncingMediaElement = false;
+
+    this._ensureMediaHost();
+    this._setupMediaSession();
+  }
+
+  _setupMediaSession() {
+    if (!this._hasMediaSession) return;
+
+    if (!this._mediaSessionHandlers) {
+      const runAction = (action, handler) => async details => {
+        try {
+          await handler(details);
+        } catch (e) {
+          console.error(`Media Session action failed: ${action}`, e);
+        }
+      };
+
+      this._mediaSessionHandlers = {
+        play: runAction('play', () => this.resume()),
+        pause: runAction('pause', () => this.pause()),
+        previoustrack: runAction('previoustrack', () => this.prevTrack()),
+        nexttrack: runAction('nexttrack', () => this.nextTrack()),
+        seekbackward: runAction('seekbackward', details =>
+          this.seekBy(-(details?.seekOffset ?? 10), { autoplay: this.isPlaying })
+        ),
+        seekforward: runAction('seekforward', details =>
+          this.seekBy(details?.seekOffset ?? 10, { autoplay: this.isPlaying })
+        ),
+        seekto: runAction('seekto', details => {
+          if (typeof details?.seekTime !== 'number') return;
+          return this.seekWithinCurrentTrack(details.seekTime, { autoplay: this.isPlaying });
+        }),
+        stop: runAction('stop', () => this.pause())
+      };
+    }
+
+    const safeSetAction = (action, handler) => {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler);
+      } catch (e) {
+        console.warn(`Media Session action unsupported or failed to bind: ${action}`, e);
+      }
+    };
+
+    Object.entries(this._mediaSessionHandlers).forEach(([action, handler]) => {
+      safeSetAction(action, null);
+      safeSetAction(action, handler);
+    });
+  }
+
+  _setPlaybackState(isPlaying) {
+    const changed = this.isPlaying !== isPlaying;
+    this.isPlaying = isPlaying;
+    this._syncMediaSessionPlaybackState();
+    if (changed) {
+      this.onPlaybackStateChange?.(isPlaying);
+    }
+  }
+
+  _clampAlbumTime(albumTime) {
+    if (!this.albumData) return 0;
+    return Math.max(0, Math.min(albumTime, this.albumData.total_duration));
+  }
+
+  _findTrackIndexByAlbumTime(albumTime) {
+    if (!this.albumData?.tracks?.length) return -1;
+    const clamped = this._clampAlbumTime(albumTime);
+    const tracks = this.albumData.tracks;
+
+    for (let i = 0; i < tracks.length; i++) {
+      const end = tracks[i].start_time + tracks[i].duration;
+      if (clamped < end || i === tracks.length - 1) return i;
+    }
+    return tracks.length - 1;
+  }
+
+  _getTrackByIndex(trackIndex = this.currentTrackIndex) {
+    if (!this.albumData?.tracks?.length) return null;
+    if (trackIndex < 0 || trackIndex >= this.albumData.tracks.length) return null;
+    return this.albumData.tracks[trackIndex];
+  }
+
+  _getCurrentTrackTime(albumTime = this._getCurrentAlbumTime(), trackIndex = this.currentTrackIndex) {
+    const track = this._getTrackByIndex(trackIndex);
+    if (!track) return 0;
+    return Math.max(0, Math.min(track.duration, albumTime - track.start_time));
+  }
+
+  _getArtworkItems() {
+    if (!this.albumData?.cover_url) return undefined;
+
+    let type;
+    if (this.albumData.cover_url.endsWith('.png')) type = 'image/png';
+    else if (this.albumData.cover_url.endsWith('.webp')) type = 'image/webp';
+    else if (this.albumData.cover_url.endsWith('.gif')) type = 'image/gif';
+    else type = 'image/jpeg';
+
+    return [{ src: this.albumData.cover_url, type }];
+  }
+
+  _syncMediaSessionMetadata(trackIndex = this.currentTrackIndex) {
+    if (!this._hasMediaSession || typeof MediaMetadata === 'undefined' || !this.albumData) return;
+    this._setupMediaSession();
+
+    const track = this._getTrackByIndex(trackIndex);
+    if (!track) return;
+
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title || this.albumData.title || 'Unknown Track',
+        artist: track.artist || this.albumData.artist || '',
+        album: this.albumData.title || '',
+        artwork: this._getArtworkItems()
+      });
+    } catch (_) { }
+  }
+
+  _syncMediaSessionPlaybackState() {
+    if (!this._hasMediaSession) return;
+    this._setupMediaSession();
+    try {
+      navigator.mediaSession.playbackState = !this.albumData
+        ? 'none'
+        : this.isPlaying
+          ? 'playing'
+          : 'paused';
+    } catch (_) { }
+  }
+
+  _syncMediaSessionPositionState(albumTime = this._getCurrentAlbumTime(), force = false) {
+    if (
+      !this._hasMediaSession ||
+      typeof navigator.mediaSession?.setPositionState !== 'function' ||
+      !this.albumData
+    ) return;
+
+    const track = this._getTrackByIndex();
+    if (!track?.duration) return;
+
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (!force && now - this._lastMediaPositionSyncAt < 250) return;
+    this._lastMediaPositionSyncAt = now;
+
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: track.duration,
+        playbackRate: 1,
+        position: this._getCurrentTrackTime(albumTime)
+      });
+    } catch (_) { }
+  }
+
+  _clearMediaSession() {
+    if (!this._hasMediaSession) return;
+    this._setupMediaSession();
+    this._lastMediaPositionSyncAt = 0;
+
+    if (this.mediaSessionEl) {
+      this._syncingMediaElement = true;
+      try {
+        this.mediaSessionEl.pause();
+        this.mediaSessionEl.currentTime = 0;
+      } catch (_) { }
+      this._syncingMediaElement = false;
+    }
+
+    try {
+      navigator.mediaSession.metadata = null;
+    } catch (_) { }
+
+    try {
+      navigator.mediaSession.playbackState = 'none';
+    } catch (_) { }
+
+    if (typeof navigator.mediaSession?.setPositionState === 'function') {
+      try {
+        navigator.mediaSession.setPositionState();
+      } catch (_) { }
+    }
+  }
+
+  _updateCurrentTrackIndex(trackIndex, { notify = false } = {}) {
+    if (trackIndex < 0) return;
+    const changed = this.currentTrackIndex !== trackIndex;
+    this.currentTrackIndex = trackIndex;
+    this._syncMediaSessionMetadata(trackIndex);
+    this._syncMediaSessionPositionState(undefined, true);
+    if (changed || notify) {
+      this.onTrackChange?.(trackIndex);
+    }
   }
 
   /** 懒初始化 AudioContext（必须在用户手势后调用） */
@@ -43,6 +243,85 @@ export class AudioEngine {
     }
   }
 
+  _createSilentWavUrl() {
+    if (this._mediaHostUrl) return this._mediaHostUrl;
+
+    const sampleRate = 8000;
+    const seconds = 10;
+    const numSamples = sampleRate * seconds;
+    const buffer = new ArrayBuffer(44 + numSamples);
+    const view = new DataView(buffer);
+
+    // WAV header
+    const writeStr = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);      // subchunk size
+    view.setUint16(20, 1, true);       // PCM
+    view.setUint16(22, 1, true);       // mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate, true); // byte rate
+    view.setUint16(32, 1, true);       // block align
+    view.setUint16(34, 8, true);       // 8-bit
+    writeStr(36, 'data');
+    view.setUint32(40, numSamples, true);
+
+    for (let i = 0; i < numSamples; i++) {
+      view.setUint8(44 + i, 128);
+    }
+
+    this._mediaHostUrl = URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+    return this._mediaHostUrl;
+  }
+
+  _ensureMediaHost() {
+    if (this.mediaSessionEl || typeof Audio === 'undefined') return;
+
+    const el = new Audio();
+    el.loop = true;
+    el.preload = 'auto';
+    el.playsInline = true;
+    el.volume = 1;
+    el.src = this._createSilentWavUrl();
+
+    el.addEventListener('play', () => {
+      if (this._syncingMediaElement) return;
+      if (!this.isPlaying && this.albumData?.tracks?.length) {
+        void this.resume();
+      }
+    });
+
+    el.addEventListener('pause', () => {
+      if (this._syncingMediaElement) return;
+      if (this.isPlaying) {
+        void this.pause();
+      }
+    });
+
+    this.mediaSessionEl = el;
+  }
+
+  async _syncMediaElementPlaybackState(shouldPlay) {
+    if (!this.mediaSessionEl) return;
+
+    this._syncingMediaElement = true;
+    try {
+      if (shouldPlay) {
+        if (this.mediaSessionEl.paused) {
+          await this.mediaSessionEl.play();
+        }
+      } else if (!this.mediaSessionEl.paused) {
+        this.mediaSessionEl.pause();
+      }
+    } catch (e) {
+      console.warn('Media host sync failed', e);
+    } finally {
+      this._syncingMediaElement = false;
+    }
+  }
+
   /** 加载专辑数据（不自动开始播放） */
   loadAlbum(albumData) {
     this._stop();
@@ -50,6 +329,9 @@ export class AudioEngine {
     this.currentTrackIndex = -1;
     this._pausedAt = 0;
     this._buffers = {};
+    this._setupMediaSession();
+    this._setPlaybackState(false);
+    this._clearMediaSession();
   }
 
   /** fetch + decode 某首曲目的 buffer（带缓存） */
@@ -69,25 +351,43 @@ export class AudioEngine {
    */
   async seekAndPlay(albumTime) {
     const seq = ++this._playSeq;
-    this._ensureCtx();
-    if (this.ctx.state === 'suspended') await this.ctx.resume();
-    if (this._playSeq !== seq) return;
+    if (!this.albumData?.tracks?.length) return;
 
+    const clampedAlbumTime = this._clampAlbumTime(albumTime);
+    this._ensureCtx();
     this._stop();
-    this.isPlaying = true;
+    this._pausedAt = clampedAlbumTime;
 
     const tracks = this.albumData.tracks;
-    // 找到目标曲目
-    let ti = tracks.length - 1;
-    for (let i = 0; i < tracks.length; i++) {
-      const end = tracks[i].start_time + tracks[i].duration;
-      if (albumTime < end || i === tracks.length - 1) { ti = i; break; }
-    }
-    const offset = albumTime - tracks[ti].start_time;
+    const ti = this._findTrackIndexByAlbumTime(clampedAlbumTime);
+    const offset = clampedAlbumTime - tracks[ti].start_time;
 
-    await this._scheduleFrom(ti, offset, this.ctx.currentTime, seq);
-    if (this._playSeq !== seq) return;
-    this._startRAF();
+    try {
+      await this._scheduleFrom(ti, offset, this.ctx.currentTime, seq);
+      if (this._playSeq !== seq) {
+        this._stop();
+        return;
+      }
+      if (this.ctx.state === 'suspended') {
+        await this.ctx.resume();
+      }
+      if (this._playSeq !== seq) {
+        this._stop();
+        return;
+      }
+      await this._syncMediaElementPlaybackState(true);
+      if (this._playSeq !== seq) return;
+      this._setPlaybackState(true);
+      this._syncMediaSessionPositionState(clampedAlbumTime, true);
+      this._startRAF();
+    } catch (e) {
+      if (this._playSeq === seq) {
+        this._stop();
+        this._setPlaybackState(false);
+        this._syncMediaSessionPositionState(clampedAlbumTime, true);
+      }
+      throw e;
+    }
   }
 
   /** 从 trackIndex + trackOffset 开始，向后链式调度 */
@@ -115,16 +415,14 @@ export class AudioEngine {
       // 当这首结束时，调度再下一首
       const tiCapture = ti;
       const whenCapture = when + playDuration;
-      src.addEventListener('ended', () => this._onSourceEnded(tiCapture, whenCapture));
+      src.onended = () => this._onSourceEnded(tiCapture, whenCapture);
 
       when += playDuration;
       ti++;
       offset = 0;
     }
 
-    // 更新当前曲目索引
-    this.currentTrackIndex = trackIndex;
-    this.onTrackChange?.(trackIndex);
+    this._updateCurrentTrackIndex(trackIndex, { notify: true });
   }
 
   /** 某首 source 播放结束时的回调 */
@@ -136,9 +434,11 @@ export class AudioEngine {
 
     if (nextTrackIndex >= tracks.length) {
       // 专辑结束
-      this.isPlaying = false;
+      this._setPlaybackState(false);
       this._pausedAt = this.albumData.total_duration;
       this._stopRAF();
+      this._syncMediaSessionPositionState(this._pausedAt, true);
+      this.onTimeUpdate?.(this._pausedAt, this.currentTrackIndex);
       this.onEnded?.();
       return;
     }
@@ -147,8 +447,7 @@ export class AudioEngine {
     const alreadyScheduled = this._scheduled.some(e => e.trackIndex === nextTrackIndex);
     if (alreadyScheduled) {
       // 更新 currentTrackIndex
-      this.currentTrackIndex = nextTrackIndex;
-      this.onTrackChange?.(nextTrackIndex);
+      this._updateCurrentTrackIndex(nextTrackIndex, { notify: true });
       // 尝试预加载 +1
       const lookAhead = nextTrackIndex + 1;
       if (lookAhead < tracks.length) {
@@ -175,7 +474,7 @@ export class AudioEngine {
     src.start(ctxWhen, 0);
     const entry = { source: src, trackIndex, startCtxTime: ctxWhen, trackOffset: 0 };
     this._scheduled.push(entry);
-    src.addEventListener('ended', () => this._onSourceEnded(trackIndex, ctxWhen + buf.duration));
+    src.onended = () => this._onSourceEnded(trackIndex, ctxWhen + buf.duration);
   }
 
   /** 停止所有已调度的 source */
@@ -185,50 +484,144 @@ export class AudioEngine {
         source.onended = null;
         source.stop();
         source.disconnect();
-      } catch (_) {}
+      } catch (_) { }
     });
     this._scheduled = [];
     this._stopRAF();
   }
 
   /** 暂停 */
-  pause() {
-    ++this._playSeq;
+  async pause() {
+    const seq = ++this._playSeq;
     if (!this.isPlaying) return;
     this._pausedAt = this._getCurrentAlbumTime();
-    this.isPlaying = false;
-    this._stop();
+    this._stopRAF();
+    this._setPlaybackState(false);
+    this.onTimeUpdate?.(this._pausedAt, this.currentTrackIndex);
+    this._syncMediaSessionPositionState(this._pausedAt, true);
+    await this._syncMediaElementPlaybackState(false);
+    if (this.ctx?.state === 'running') {
+      try {
+        await this.ctx.suspend();
+      } catch (_) { }
+      if (this._playSeq !== seq && this.ctx.state === 'suspended' && this.isPlaying) {
+        try {
+          await this.ctx.resume();
+        } catch (_) { }
+      }
+    }
   }
 
   /** 继续播放 */
   async resume() {
-    if (this.isPlaying) return;
+    const seq = ++this._playSeq;
+    if (this.isPlaying || !this.albumData?.tracks?.length) return;
+    if (this.ctx && this._scheduled.length) {
+      if (this.ctx.state === 'suspended') {
+        await this.ctx.resume();
+      }
+      if (this._playSeq !== seq) return;
+      await this._syncMediaElementPlaybackState(true);
+      if (this._playSeq !== seq) return;
+      this._setPlaybackState(true);
+      this._syncMediaSessionPositionState(this._pausedAt, true);
+      this._startRAF();
+      return;
+    }
     await this.seekAndPlay(this._pausedAt);
   }
 
   /** 跳到下一首 */
   async nextTrack() {
-    if (!this.albumData) return;
+    if (!this.albumData?.tracks?.length) return;
+    const autoplay = this.isPlaying;
+    if (this.currentTrackIndex < 0) {
+      await this.seekToAlbumTime(this.albumData.tracks[0].start_time, { autoplay });
+      return;
+    }
     const next = this.currentTrackIndex + 1;
     if (next >= this.albumData.tracks.length) return;
     const albumTime = this.albumData.tracks[next].start_time;
-    await this.seekAndPlay(albumTime);
+    await this.seekToAlbumTime(albumTime, { autoplay });
   }
 
   /** 跳到上一首（3秒内返回上一首，否则本首重头） */
   async prevTrack() {
-    if (!this.albumData) return;
+    if (!this.albumData?.tracks?.length) return;
+    const autoplay = this.isPlaying;
+    if (this.currentTrackIndex <= 0) {
+      await this.seekToAlbumTime(this.albumData.tracks[0].start_time, { autoplay });
+      return;
+    }
     const trackTime = this._getCurrentAlbumTime() - this.albumData.tracks[this.currentTrackIndex].start_time;
     if (trackTime > 3 || this.currentTrackIndex === 0) {
-      await this.seekAndPlay(this.albumData.tracks[this.currentTrackIndex].start_time);
+      await this.seekToAlbumTime(this.albumData.tracks[this.currentTrackIndex].start_time, { autoplay });
     } else {
       const prev = this.currentTrackIndex - 1;
-      await this.seekAndPlay(this.albumData.tracks[prev].start_time);
+      await this.seekToAlbumTime(this.albumData.tracks[prev].start_time, { autoplay });
     }
   }
 
   setVolume(v) {
     if (this.gainNode) this.gainNode.gain.value = Math.max(0, Math.min(1, v));
+  }
+
+  async seekToAlbumTime(albumTime, { autoplay = this.isPlaying } = {}) {
+    if (!this.albumData?.tracks?.length) return;
+
+    const clampedAlbumTime = this._clampAlbumTime(albumTime);
+    if (autoplay) {
+      await this.seekAndPlay(clampedAlbumTime);
+      return;
+    }
+
+    const seq = ++this._playSeq;
+    this._ensureCtx();
+    if (this.ctx.state === 'running') {
+      try {
+        await this.ctx.suspend();
+      } catch (_) { }
+    }
+    if (this._playSeq !== seq) return;
+
+    this._stop();
+    this._pausedAt = clampedAlbumTime;
+    const trackIndex = this._findTrackIndexByAlbumTime(clampedAlbumTime);
+    const offset = clampedAlbumTime - this.albumData.tracks[trackIndex].start_time;
+
+    try {
+      await this._scheduleFrom(trackIndex, offset, this.ctx.currentTime, seq);
+      if (this._playSeq !== seq) {
+        this._stop();
+        return;
+      }
+      await this._syncMediaElementPlaybackState(false);
+      this._setPlaybackState(false);
+      this.onTimeUpdate?.(clampedAlbumTime, trackIndex);
+      this._syncMediaSessionPositionState(clampedAlbumTime, true);
+    } catch (e) {
+      if (this._playSeq === seq) {
+        this._stop();
+        this._setPlaybackState(false);
+        this._syncMediaSessionPositionState(clampedAlbumTime, true);
+      }
+      throw e;
+    }
+  }
+
+  async seekWithinCurrentTrack(trackTime, { autoplay = this.isPlaying } = {}) {
+    const track = this._getTrackByIndex();
+    if (!track) return;
+
+    const clampedTrackTime = Math.max(0, Math.min(track.duration, trackTime));
+    await this.seekToAlbumTime(track.start_time + clampedTrackTime, { autoplay });
+  }
+
+  async seekBy(deltaSeconds, { autoplay = this.isPlaying } = {}) {
+    const track = this._getTrackByIndex();
+    if (!track) return;
+
+    await this.seekWithinCurrentTrack(this._getCurrentTrackTime() + deltaSeconds, { autoplay });
   }
 
   /** 计算当前专辑时间 */
@@ -263,13 +656,13 @@ export class AudioEngine {
       for (let i = tracks.length - 1; i >= 0; i--) {
         if (t >= tracks[i].start_time) {
           if (this.currentTrackIndex !== i) {
-            this.currentTrackIndex = i;
-            this.onTrackChange?.(i);
+            this._updateCurrentTrackIndex(i, { notify: true });
           }
           break;
         }
       }
       this.onTimeUpdate?.(t, this.currentTrackIndex);
+      this._syncMediaSessionPositionState(t);
       this._rafId = requestAnimationFrame(tick);
     };
     this._rafId = requestAnimationFrame(tick);

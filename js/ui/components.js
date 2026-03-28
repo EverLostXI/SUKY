@@ -443,7 +443,7 @@ export function initCoverFlowControls() {
     if (state.view !== 'main') return;
     if (searchOverlay.classList.contains('visible')) {
       return;
-    } else {
+    } else if (['ArrowLeft', 'ArrowRight', 'Enter', ' ', '/'].includes(e.key)) {
       e.preventDefault();
     }
     if (e.key === 'ArrowLeft')  navigateFlow(-1);
