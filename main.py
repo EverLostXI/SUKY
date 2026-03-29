@@ -4,12 +4,15 @@ import hashlib
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC
 from mutagen.flac import FLAC
+from http.server import SimpleHTTPRequestHandler, HTTPServer
 
 # --- 配置区 ---
 MUSIC_DIR = "./music"          # 你的音乐文件夹路径（支持 mp3 和 flac）
 OUTPUT_DIR = "./data"          # json 和 提取出的封面 存放路径
 COVERS_DIR = os.path.join(OUTPUT_DIR, "covers")
 ALBUMS_DIR = os.path.join(OUTPUT_DIR, "albums")
+HTTP_HOST = "0.0.0.0"
+HTTP_PORT = 8002
 
 # 初始化输出目录
 os.makedirs(COVERS_DIR, exist_ok=True)
@@ -156,4 +159,10 @@ def process_music_library():
     print(f"\n全部处理完成！共生成 {len(albums_summary)} 张专辑的数据。")
 
 if __name__ == "__main__":
+    # Preprocess
     process_music_library()
+
+    # HTTP Server
+    server = HTTPServer((HTTP_HOST, HTTP_PORT), SimpleHTTPRequestHandler)
+    print(f"Serving on http://{HTTP_HOST}:{HTTP_PORT}")
+    server.serve_forever()
