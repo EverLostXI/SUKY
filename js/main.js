@@ -3,16 +3,6 @@
  */
 import state from './core/state.js';
 import { loadAlbumsList } from './core/dataLoader.js';
-import {
-  assertLocalLibrarySupport,
-  chooseMusicRoot,
-  forgetMusicRoot,
-  initVirtualDataWorker,
-  loadStoredMusicRoot,
-  queryMusicRootPermission,
-  requestMusicRootPermission,
-  scanMusicRoot
-} from './core/localLibrary.js';
 import { audioEngine } from './core/audioEngine.js';
 import {
   renderCoverFlow,
@@ -27,24 +17,21 @@ import {
   updatePlayPauseBtn,
   isCdDragging
 } from './ui/components.js';
-import { createStartupOverlay } from './ui/startupOverlay.js';
-
-const startupOverlay = createStartupOverlay();
-let currentRootHandle = null;
-let rebuildInFlight = false;
 
 async function init() {
-  bindLibrarySettingsActions();
+  // 1. 加载专辑列表
+  try {
+    const albums = await loadAlbumsList();
+    state.set('albums', albums);
+  } catch (e) {
+    console.warn('albums.json 加载失败，显示空状态。', e);
+    state.set('albums', []);
+  }
 
-  await prepareLocalLibrary();
-
-  const albums = await loadAlbumsList();
-  state.set('albums', albums);
-
-  startupOverlay.hide();
-
+  // 2. 渲染 Cover Flow
   renderCoverFlow();
 
+  // 等启动文字动画自己结束后再清理类名，避免在动画尾帧中途被强行打断。
   const startupInfo = document.querySelector('.is-startup-info');
   let startupCleanupDone = false;
   const finishStartup = () => {
@@ -61,11 +48,13 @@ async function init() {
       }
     }, { once: true });
 
+    // Fallback for cases where the animation event does not fire.
     setTimeout(finishStartup, 2400);
   } else {
     setTimeout(finishStartup, 1600);
   }
 
+  // 3. 初始化所有交互
   initCoverFlowControls();
   initProgressBar();
   initCdDrag();
@@ -74,22 +63,18 @@ async function init() {
   initSettings();
   initSearch();
 
-  audioEngine.onPlaybackStateChange = isPlaying => {
-    state.set('isPlaying', isPlaying);
-    updatePlayPauseBtn();
-  };
-
-  let lastSaveTime = 0;
+  // 4. 音频引擎时间更新 → 进度条
+  let _lastSaveTime = 0;
   audioEngine.onTimeUpdate = (albumTime, trackIndex) => {
     state.set('currentAlbumTime', albumTime);
     state.set('currentTrackIndex', trackIndex);
     if (!isCdDragging()) {
       updateProgressBar(albumTime);
     }
-
+    // 每 3 秒存一次进度
     const now = Date.now();
-    if (now - lastSaveTime > 3000) {
-      lastSaveTime = now;
+    if (now - _lastSaveTime > 3000) {
+      _lastSaveTime = now;
       const albumId = state.currentAlbum?.id;
       if (albumId) {
         localStorage.setItem(`playersky_progress_${albumId}`, albumTime);
@@ -98,12 +83,15 @@ async function init() {
   };
 
   let trackInfoTimeout;
-  audioEngine.onTrackChange = trackIndex => {
+  audioEngine.onTrackChange = (trackIndex) => {
     state.set('currentTrackIndex', trackIndex);
-
+    
+    // 立即刷新进度条文字（防止第一帧闪烁旧名字）
+    // 使用 audioEngine 的实时时间而非 state 缓存，避免 seek 后进度条跳回旧位置
     const currentTime = audioEngine.currentAlbumTime || state.currentAlbumTime || 0;
     updateProgressBar(currentTime);
-
+    
+    // 强制显示3秒歌曲信息
     const trackInfo = document.querySelector('.track-info');
     if (trackInfo) {
       trackInfo.classList.add('force-show');
@@ -119,159 +107,10 @@ async function init() {
     updatePlayPauseBtn();
   };
 
+  // 5. 音量初始化
   audioEngine.setVolume(state.volume);
 
-  console.log('Suky initialized.');
+  console.log('PlayerForSky initialized.');
 }
 
-async function prepareLocalLibrary() {
-  assertLocalLibrarySupport();
-
-  startupOverlay.showScanning(0, 0, '正在注册虚拟数据 Service Worker。');
-  await initVirtualDataWorker();
-
-  currentRootHandle = await resolveMusicRootHandle();
-
-  startupOverlay.showScanning(0, 0, '正在扫描音乐目录并写入 .suky 元数据。');
-  await scanMusicRoot(currentRootHandle, {
-    onProgress(done, total) {
-      startupOverlay.showScanning(done, total, '正在扫描音乐目录并写入 .suky 元数据。');
-    }
-  });
-}
-
-async function resolveMusicRootHandle() {
-  const storedHandle = await loadStoredMusicRoot();
-  if (!storedHandle) {
-    return promptForNewMusicRoot();
-  }
-
-  const permission = await queryMusicRootPermission(storedHandle);
-  if (permission === 'granted') {
-    return storedHandle;
-  }
-
-  if (permission === 'prompt') {
-    return promptForStoredHandlePermission(storedHandle);
-  }
-
-  return promptForNewMusicRoot();
-}
-
-async function promptForNewMusicRoot() {
-  return new Promise((resolve, reject) => {
-    let busy = false;
-
-    const pickDirectory = async () => {
-      if (busy) return;
-      busy = true;
-
-      try {
-        const handle = await chooseMusicRoot();
-        resolve(handle);
-      } catch (error) {
-        if (error?.name === 'AbortError') {
-          busy = false;
-          startupOverlay.showWelcome(pickDirectory);
-          return;
-        }
-        reject(error);
-      }
-    };
-
-    startupOverlay.showWelcome(pickDirectory);
-  });
-}
-
-async function promptForStoredHandlePermission(handle) {
-  return new Promise((resolve, reject) => {
-    let busy = false;
-
-    const chooseAnother = async () => {
-      if (busy) return;
-      busy = true;
-
-      try {
-        const newHandle = await chooseMusicRoot();
-        resolve(newHandle);
-      } catch (error) {
-        if (error?.name === 'AbortError') {
-          busy = false;
-          startupOverlay.showPermissionRequest(continueAccess, chooseAnother);
-          return;
-        }
-        reject(error);
-      }
-    };
-
-    const continueAccess = async () => {
-      if (busy) return;
-      busy = true;
-
-      try {
-        const permission = await requestMusicRootPermission(handle);
-        if (permission === 'granted') {
-          resolve(handle);
-          return;
-        }
-
-        busy = false;
-        startupOverlay.showPermissionRequest(continueAccess, chooseAnother);
-      } catch (error) {
-        reject(error);
-      }
-    };
-
-    startupOverlay.showPermissionRequest(continueAccess, chooseAnother);
-  });
-}
-
-function bindLibrarySettingsActions() {
-  const rebuildBtn = document.getElementById('rebuild-library-btn');
-  const changeRootBtn = document.getElementById('change-root-btn');
-
-  rebuildBtn?.addEventListener('click', async () => {
-    if (!currentRootHandle || rebuildInFlight) return;
-
-    rebuildInFlight = true;
-    startupOverlay.showScanning(0, 0, '正在整库重建媒体库并刷新封面缓存。');
-
-    try {
-      await scanMusicRoot(currentRootHandle, {
-        rebuild: true,
-        onProgress(done, total) {
-          startupOverlay.showScanning(done, total, '正在整库重建媒体库并刷新封面缓存。');
-        }
-      });
-      window.location.reload();
-    } catch (error) {
-      rebuildInFlight = false;
-      startupOverlay.showError(error, {
-        onRetry: () => window.location.reload(),
-        onChooseDirectory: handleChangeRoot
-      });
-    }
-  });
-
-  changeRootBtn?.addEventListener('click', handleChangeRoot);
-}
-
-async function handleChangeRoot() {
-  await forgetMusicRoot();
-  window.location.reload();
-}
-
-init().catch(error => {
-  console.error(error);
-  startupOverlay.showError(error, {
-    onRetry: () => window.location.reload(),
-    onChooseDirectory: async () => {
-      try {
-        await forgetMusicRoot();
-      } catch (_) {
-        // Ignore cleanup failures while recovering from init errors.
-      }
-      window.location.reload();
-    }
-  });
-});
+init().catch(console.error);

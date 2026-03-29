@@ -3,10 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Suky</title>
-  <!-- web manifest -->
-  <link rel="icon" href="./assets/icon.png" sizes="512x512" />
-  <link rel="manifest" href="./assets/manifest.webmanifest" />
+  <title>PlayerForSky</title>
   <link rel="stylesheet" href="./css/variables.css" />
   <link rel="stylesheet" href="./css/layout.css" />
   <link rel="stylesheet" href="./css/components.css" />
@@ -62,12 +59,10 @@
         </div><!-- /main-view -->
       </div>
 
-      <div class="table-plane-entrance" aria-hidden="true">
-        <div class="table-plane">
-          <div class="table-cd-machine">
-            <div class="table-cd-body"></div>
-            <div class="table-cd-well"></div>
-          </div>
+      <div class="table-plane" aria-hidden="true">
+        <div class="table-cd-machine">
+          <div class="table-cd-body"></div>
+          <div class="table-cd-well"></div>
         </div>
       </div>
     </div>
@@ -142,30 +137,6 @@
     <div class="setting-item">
       <label for="volume-slider">音量</label>
       <input id="volume-slider" type="range" min="0" max="100" value="80" />
-    </div>
-    <div class="setting-item setting-item-actions">
-      <button id="rebuild-library-btn" class="settings-action-btn" type="button">重建媒体库</button>
-      <button id="change-root-btn" class="settings-action-btn" type="button">更换目录</button>
-      <button id="update-btn" class="settings-action-btn" type="button" onclick="caches.delete('playerforsk-static-v1').then(()=>location.reload())">更新</button>
-    </div>
-  </div>
-
-  <div id="startup-overlay" class="startup-overlay">
-    <div class="startup-panel">
-      <div id="startup-eyebrow" class="startup-eyebrow">本地媒体库</div>
-      <h1 id="startup-title" class="startup-title">准备播放器</h1>
-      <p id="startup-description" class="startup-description">正在初始化本地文件系统访问。</p>
-      <div id="startup-progress" class="startup-progress hidden">
-        <div class="startup-progress-track">
-          <div id="startup-progress-fill" class="startup-progress-fill"></div>
-        </div>
-        <div id="startup-progress-text" class="startup-progress-text"></div>
-      </div>
-      <div class="startup-actions">
-        <button id="startup-primary-btn" class="startup-btn startup-btn-primary" type="button">继续</button>
-        <button id="startup-secondary-btn" class="startup-btn startup-btn-secondary hidden" type="button">更换目录</button>
-      </div>
-      <p id="startup-hint" class="startup-hint"></p>
     </div>
   </div>
 
