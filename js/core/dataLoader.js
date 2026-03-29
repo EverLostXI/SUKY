@@ -7,7 +7,7 @@
  * @returns {Promise<Array>}
  */
 export async function loadAlbumsList() {
-  const res = await fetch('./data/albums.json');
+  const res = await fetch('/virtual-data/data/albums.json');
   if (!res.ok) throw new Error(`无法加载 albums.json: ${res.status}`);
   return res.json();
 }
@@ -18,7 +18,10 @@ export async function loadAlbumsList() {
  * @returns {Promise<Object>}
  */
 export async function loadAlbumDetail(detailUrl) {
-  const res = await fetch(detailUrl);
+  const normalizedUrl = detailUrl.startsWith('./data/')
+    ? detailUrl.replace('./data/', '/virtual-data/data/')
+    : detailUrl;
+  const res = await fetch(normalizedUrl);
   if (!res.ok) throw new Error(`无法加载专辑详情: ${res.status}`);
   return res.json();
 }

@@ -308,6 +308,151 @@
   accent-color: var(--color-accent);
   cursor: pointer;
 }
+.setting-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-sm);
+}
+.settings-action-btn {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.05);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform var(--t-fast), background var(--t-fast), border-color var(--t-fast);
+}
+.settings-action-btn:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.18);
+}
+.settings-action-btn:active {
+  transform: translateY(0);
+}
+
+/* ══════════════════════════════════════
+   Startup Overlay
+══════════════════════════════════════ */
+.startup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background:
+    radial-gradient(circle at top, rgba(124,143,255,0.16), transparent 42%),
+    linear-gradient(180deg, rgba(10,10,18,0.92), rgba(6,6,12,0.98));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  opacity: 1;
+  transition: opacity 0.28s ease;
+}
+.startup-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.startup-panel {
+  width: min(560px, 100%);
+  padding: 36px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 28px;
+  background: rgba(18,18,28,0.82);
+  box-shadow: 0 30px 100px rgba(0,0,0,0.45);
+}
+.startup-eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.startup-title {
+  margin-top: 14px;
+  font-size: 34px;
+  line-height: 1.1;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.startup-description {
+  margin-top: 16px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+.startup-progress {
+  margin-top: 24px;
+}
+.startup-progress.hidden {
+  display: none;
+}
+.startup-progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.08);
+}
+.startup-progress-fill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(124,143,255,0.72), rgba(171,214,255,0.92));
+  transition: width 0.18s ease;
+}
+.startup-progress-text {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.startup-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+}
+.startup-btn {
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 13px 18px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform var(--t-fast), background var(--t-fast), border-color var(--t-fast), opacity var(--t-fast);
+}
+.startup-btn.hidden {
+  display: none;
+}
+.startup-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.startup-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+.startup-btn-primary {
+  background: rgba(124,143,255,0.22);
+  color: var(--color-text-primary);
+}
+.startup-btn-primary:not(:disabled):hover {
+  background: rgba(124,143,255,0.32);
+  border-color: rgba(171,214,255,0.34);
+}
+.startup-btn-secondary {
+  background: rgba(255,255,255,0.04);
+  color: var(--color-text-secondary);
+}
+.startup-btn-secondary:not(:disabled):hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--color-text-primary);
+}
+.startup-hint {
+  margin-top: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
 
 /* ══════════════════════════════════════
    CD Machine (Playback View)

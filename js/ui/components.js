@@ -111,8 +111,8 @@ export function renderCoverFlow(animate = false) {
     coverFlow.innerHTML = `
       <div class="empty-state">
         <h2>没有找到专辑</h2>
-        <p>请先将 MP3 文件放入 <code>./music/</code> 目录，然后运行
-           <code>python generate_db.py</code> 生成数据，再刷新页面。</p>
+        <p>当前所选目录下没有可用音频文件。
+           可以在设置中更换目录，或检查每张专辑是否位于独立子文件夹内。</p>
       </div>`;
     albumTitleEl.textContent = '';
     albumArtistEl.textContent = '';
