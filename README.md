@@ -12,11 +12,7 @@ A virtual CD machine for your local music collection.
 
 ## Getting Started
 
-1. Clone the repo and click on index.html. Or visit our project website. 
-
-   ```shell
-   git clone http://github.com/EverLostXI/Suky
-   ```
+1. Visit our project website. 
 
 2. Choose your music library folder, each album under this library should be an individual folder with its title as name, containing every song in this album in mp3/flac format. 
 
@@ -26,4 +22,4 @@ A virtual CD machine for your local music collection.
 
 
 
-Special thanks to cgluWxh and Skyzhou
+#### Special thanks to cgluWxh and Skyzhou!
