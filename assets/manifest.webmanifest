@@ -1,0 +1,13 @@
+{
+    "dir": "ltr",
+    "lang": "zh-CN",
+    "name": "Suky",
+    "scope": "/",
+    "display": "standalone",
+    "start_url": "/",
+    "short_name": "Suky",
+    "theme_color": "#1f2652",
+    "description": "A virtual CD machine for your local music collection.",
+    "orientation": "landscape",
+    "background_color": "#1f2652"
+  }
