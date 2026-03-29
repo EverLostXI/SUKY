@@ -1024,9 +1024,26 @@ export function updatePlayPauseBtn() {
 export function initHoverZones() {
   const mainView     = document.getElementById('main-view');
   const playbackView = document.getElementById('playback-view');
+  let playbackHideTimer = null;
 
   function _searchHasText() {
     return !!(searchInput && searchInput.value.trim());
+  }
+
+  function hidePlaybackUi() {
+    document.getElementById('prev-btn')?.classList.remove('visible');
+    document.getElementById('next-btn')?.classList.remove('visible');
+    document.getElementById('play-pause-btn')?.classList.remove('visible');
+    progressContainer.classList.remove('visible');
+  }
+
+  function resetPlaybackHideTimer() {
+    if (playbackHideTimer) clearTimeout(playbackHideTimer);
+    playbackHideTimer = setTimeout(() => {
+      if (state.view !== 'playback') return;
+      if (isCdDragging() || isProgressHoverLocked) return;
+      hidePlaybackUi();
+    }, 5000);
   }
 
   // Main view: top → search
@@ -1059,6 +1076,7 @@ export function initHoverZones() {
   // Playback view: mousemove handling for controls & progress bar
   playbackView.addEventListener('mousemove', e => {
     if (state.view !== 'playback') return;
+    resetPlaybackHideTimer();
     
     // 1. 判断 CD 高度的横向区域显隐 控制层(播放/切歌按钮)
     // CD 视觉圆心高度 (基于50% 以及向上的 57.6px 偏移)
@@ -1086,9 +1104,7 @@ export function initHoverZones() {
       if(playBtn) playBtn.classList.toggle('visible', dist(playBtn) < 60); // 触发半径等同于按钮自身半径 (120px / 2)
     } else {
       // 拖拽时全影藏
-      document.getElementById('prev-btn')?.classList.remove('visible');
-      document.getElementById('next-btn')?.classList.remove('visible');
-      document.getElementById('play-pause-btn')?.classList.remove('visible');
+      hidePlaybackUi();
     }
 
     // 2. 判断底部进度条呼出 
@@ -1100,6 +1116,12 @@ export function initHoverZones() {
     } else if (e.clientY < cdBottomY - 30 && !isCdDragging() && !isProgressHoverLocked) {
       progressContainer.classList.remove('visible');
     }
+  });
+
+  playbackView.addEventListener('mouseleave', () => {
+    if (playbackHideTimer) clearTimeout(playbackHideTimer);
+    if (state.view !== 'playback') return;
+    hidePlaybackUi();
   });
 }
 

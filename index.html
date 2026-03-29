@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Suky</title>
   <!-- web manifest -->
+  <link rel="icon" href="./assets/icon.png" sizes="512x512" />
   <link rel="manifest" href="./assets/manifest.webmanifest" />
   <link rel="stylesheet" href="./css/variables.css" />
   <link rel="stylesheet" href="./css/layout.css" />
@@ -145,6 +146,7 @@
     <div class="setting-item setting-item-actions">
       <button id="rebuild-library-btn" class="settings-action-btn" type="button">重建媒体库</button>
       <button id="change-root-btn" class="settings-action-btn" type="button">更换目录</button>
+      <button id="update-btn" class="settings-action-btn" type="button" onclick="caches.delete('playerforsk-static-v1').then(()=>location.reload())">更新</button>
     </div>
   </div>
 
