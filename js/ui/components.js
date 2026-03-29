@@ -1037,6 +1037,12 @@ export function initHoverZones() {
     progressContainer.classList.remove('visible');
   }
 
+  function hidePlaybackControls() {
+    document.getElementById('prev-btn')?.classList.remove('visible');
+    document.getElementById('next-btn')?.classList.remove('visible');
+    document.getElementById('play-pause-btn')?.classList.remove('visible');
+  }
+
   function resetPlaybackHideTimer() {
     if (playbackHideTimer) clearTimeout(playbackHideTimer);
     playbackHideTimer = setTimeout(() => {
@@ -1103,8 +1109,8 @@ export function initHoverZones() {
       if(nextBtn) nextBtn.classList.toggle('visible', dist(nextBtn) < 300); // 调整触发半径
       if(playBtn) playBtn.classList.toggle('visible', dist(playBtn) < 60); // 触发半径等同于按钮自身半径 (120px / 2)
     } else {
-      // 拖拽时全影藏
-      hidePlaybackUi();
+      // 拖拽时仅隐藏控制按钮，底部进度区仍按鼠标位置正常显示
+      hidePlaybackControls();
     }
 
     // 2. 判断底部进度条呼出 
