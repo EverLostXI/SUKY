@@ -58,6 +58,7 @@ let _dragStartX = 0;
 let _dragDelta  = 0;
 let _lastNavDir = 1; // last nav direction (±1), drives circular fly-out side
 let _flowNavToken = 0; // cancels in-flight multi-step navigation when a new nav starts
+let _startupDropArmed = true; // only the very first visible batch gets the startup drop
 
 // Live DOM map: albumIdx → card element (avoids full rebuilds on navigate)
 let _cfCards = new Map();
@@ -125,13 +126,15 @@ export function renderCoverFlow(animate = false) {
 
   if (!animate) {
     // Full instant rebuild (initial load / after returning from playback)
+    const applyStartupDrop = _startupDropArmed && document.body.classList.contains('is-startup');
     coverFlow.innerHTML = '';
     _cfCards.clear();
     for (const { idx, pos } of visible) {
-      const card = _buildCard(albums[idx], idx, pos);
+      const card = _buildCard(albums[idx], idx, pos, false, applyStartupDrop);
       coverFlow.appendChild(card);
       _cfCards.set(idx, card);
     }
+    _startupDropArmed = false;
   } else {
     // Determine which card exits: for large libs a card naturally leaves the visible
     // window; for small libs (all cards always visible) we force-exit the extreme card
@@ -188,10 +191,12 @@ export function renderCoverFlow(animate = false) {
 }
 
 /** Create a card DOM element. skipPos = true: don't apply transform yet (for animated entry). */
-function _buildCard(album, albumIdx, relPos, skipPos = false) {
+function _buildCard(album, albumIdx, relPos, skipPos = false, startupDrop = false) {
   const card = document.createElement('div');
   // For initial render / full rebuild, add 'ready' immediately to the center card
-  card.className = 'album-card' + (relPos === 0 ? ' center ready' : '');
+  card.className = 'album-card'
+    + (relPos === 0 ? ' center ready' : '')
+    + (startupDrop ? ' startup-drop' : '');
   card.dataset.index = albumIdx;
   card.dataset.pos = relPos; // Remember relative pos for fly-out calculation
 
@@ -220,8 +225,10 @@ function _buildCard(album, albumIdx, relPos, skipPos = false) {
     
     // Add custom property for stagger delay (left to right)
     // Leftmost card (relPos = -3) gets 0s, rightmost (+3) gets ~0.42s
-    const delay = (relPos + VISIBLE_SIDES) * 0.07; 
-    card.style.setProperty('--startup-delay', `${delay}s`);
+    if (startupDrop) {
+      const delay = (relPos + VISIBLE_SIDES) * 0.07;
+      card.style.setProperty('--startup-delay', `${delay}s`);
+    }
   }
 
   _bindClick(card, album, albumIdx);
@@ -417,7 +424,11 @@ async function animateReturnToCoverFlow() {
     const cover = card.querySelector('.album-cover');
     const peek = card.querySelector('.cd-peek');
     card.style.transition = '';
-    if (cover) cover.style.transition = '';
+    if (cover) {
+      cover.style.transition = '';
+      cover.style.transform = '';
+      cover.style.opacity = '';
+    }
     if (peek) {
       peek.style.transition = '';
       if (pos === 0) {
