@@ -3,10 +3,6 @@
     "lang": "zh-CN",
     "name": "Suky",
     "scope": "/",
-    "display_override": [
-      "window-controls-overlay",
-      "standalone"
-    ],
     "display": "standalone",
     "start_url": "/",
     "short_name": "Suky",
